@@ -12,7 +12,7 @@ func RegisterRoute(r *gin.Engine) {
 	r.POST("/api/v1/register", controllers.Register)
 	r.POST("/api/v1/refresh", controllers.Register)
 
-	protected := r.Group("/api/v1`")
+	protected := r.Group("/api/v1")
 	protected.Use(middleware.JWTAuthMiddleware(), middleware.RateLimitMiddleware())
 	{
 		protected.GET("/tasks", controllers.GetTasks)
