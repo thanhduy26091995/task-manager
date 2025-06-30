@@ -26,7 +26,7 @@ func ConnectDatabase() {
 	}
 	DB = db // Assign the DB variable to the global DB variable
 	log.Println("Database connection established")
-	migrationErr := DB.AutoMigrate(models.Task{}) // Assuming Task is the model you want to migrate
+	migrationErr := DB.AutoMigrate(models.Task{}, models.User{}) // Assuming Task is the model you want to migrate
 	if migrationErr != nil {
 		log.Fatalf("Failed to migrate database: %v", migrationErr)
 	}

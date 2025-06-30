@@ -2,18 +2,24 @@ package routes
 
 import (
 	"task-manager-api/controllers"
+	"task-manager-api/middleware"
 
 	"github.com/gin-gonic/gin"
 )
 
 func RegisterRoute(r *gin.Engine) {
-	v1 := r.Group("/api/v1")
+	r.POST("/api/v1/login", controllers.Login)
+	r.POST("/api/v1/register", controllers.Register)
+	r.POST("/api/v1/refresh", controllers.Register)
+
+	protected := r.Group("/api/v1`")
+	protected.Use(middleware.JWTAuthMiddleware(), middleware.RateLimitMiddleware())
 	{
-		v1.GET("/tasks", controllers.GetTasks)
-		v1.GET("/tasks/:id", controllers.GetTask)
-		v1.POST("/tasks", controllers.CreateTask)
-		v1.PUT("/tasks/:id", controllers.UpdateTask)
-		v1.DELETE("/tasks/:id", controllers.DeleteTask)
-		v1.POST("/webhook/apple", controllers.HandleAppleWebhook)
+		protected.GET("/tasks", controllers.GetTasks)
+		protected.GET("/tasks/:id", controllers.GetTask)
+		protected.POST("/tasks", controllers.CreateTask)
+		protected.PUT("/tasks/:id", controllers.UpdateTask)
+		protected.DELETE("/tasks/:id", controllers.DeleteTask)
+		protected.POST("/webhook/apple", controllers.HandleAppleWebhook)
 	}
 }
