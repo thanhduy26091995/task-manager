@@ -11,6 +11,7 @@ import (
 func main() {
 	config.LoadEnv()
 	config.ConnectDatabase()
+	config.ConnectWithRedis()
 
 	r := gin.Default()
 	routes.RegisterRoute(r)

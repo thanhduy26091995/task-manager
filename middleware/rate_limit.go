@@ -1,16 +1,22 @@
 package middleware
 
 import (
-	"os"
+	"context"
+	"net/http"
 	"strconv"
+	"task-manager-api/config"
+	"task-manager-api/utils"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/redis/go-redis/v9"
 	"github.com/ulule/limiter/v3"
 	ginlimiter "github.com/ulule/limiter/v3/drivers/middleware/gin"
 	limiterRedis "github.com/ulule/limiter/v3/drivers/store/redis"
 )
+
+var rateLimit = 10
+var rateLimitPeriod = 1 * time.Minute
+var redisKeyPrefix = "rate:limit"
 
 func RateLimitMiddleware() gin.HandlerFunc {
 	// Defind rate limit parameters
@@ -20,23 +26,8 @@ func RateLimitMiddleware() gin.HandlerFunc {
 		Limit:  100,
 	}
 
-	// Setup Redis store and middleware
-	redisPassword := os.Getenv("REDIS_PASSWORD")
-	redisAddr := os.Getenv("REDIS_SERVER")
-	redisDB, err := strconv.Atoi(os.Getenv("REDIS_DB"))
-
-	if err != nil {
-		panic("Invalid REDIS_DB value, must be an integer")
-	}
-
-	rdb := redis.NewClient(&redis.Options{
-		Addr:     redisAddr, // Adjust as necessary
-		Password: redisPassword,
-		DB:       redisDB, // Use default DB
-	})
-
 	// Create store with Redis backend
-	store, err := limiterRedis.NewStoreWithOptions(rdb, limiter.StoreOptions{
+	store, err := limiterRedis.NewStoreWithOptions(config.RedisClient, limiter.StoreOptions{
 		Prefix:   "rate_limit",
 		MaxRetry: 3,
 	})
@@ -45,4 +36,35 @@ func RateLimitMiddleware() gin.HandlerFunc {
 		panic(err) // Handle error appropriately in production code
 	}
 	return ginlimiter.NewMiddleware(limiter.New(store, rate))
+}
+
+func RateLimitPerIPMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx := context.Background()
+		ip := c.ClientIP()
+		key := redisKeyPrefix + ip
+
+		rdb := config.RedisClient
+		// Increase and get the current count
+		count, err := rdb.Incr(ctx, key).Result()
+		if err != nil {
+			utils.Error(c, http.StatusInternalServerError, "Redis error")
+			return
+		}
+
+		if count == 1 {
+			rdb.Expire(ctx, key, rateLimitPeriod) // Set expiration for the key
+		}
+
+		if count > int64(rateLimit) {
+			ttl, _ := rdb.TTL(ctx, key).Result()
+			c.Header("X-RateLimit-Limit", strconv.Itoa(rateLimit))
+			c.Header("X-Retry-After", strconv.Itoa(int(ttl.Seconds())))
+			c.Abort()
+			utils.Error(c, http.StatusTooManyRequests, "Rate limit exceeded. Try again later.")
+			return
+		}
+
+		c.Next()
+	}
 }
