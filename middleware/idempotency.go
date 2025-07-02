@@ -16,7 +16,7 @@ func IdempotencyMiddleware() gin.HandlerFunc {
 		idempotencyKey := c.GetHeader("Idempotency-Key")
 		if idempotencyKey == "" {
 			c.Abort()
-			utils.Error(c, http.StatusBadRequest, "Idempotency-Key header is required")
+			utils.Error(c, http.StatusBadRequest, "Idempotency-Key header is required", "The Idempotency-Key header is required to ensure idempotent requests")
 			return
 		}
 
@@ -27,10 +27,10 @@ func IdempotencyMiddleware() gin.HandlerFunc {
 		if err == nil && val != "" {
 			// If the key exists, it means the request has already been processed
 			c.Abort()
-			utils.Error(c, http.StatusConflict, "Request has already been processed")
+			utils.Error(c, http.StatusConflict, "Request has already been processed", "The request with the provided Idempotency-Key has already been processed. Please use a different key for new requests.")
 			return
 		}
-		
+
 		rdb.Set(ctx, idempotencyKey, "processed", time.Hour)
 		c.Next()
 	}

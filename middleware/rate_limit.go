@@ -48,7 +48,7 @@ func RateLimitPerIPMiddleware() gin.HandlerFunc {
 		// Increase and get the current count
 		count, err := rdb.Incr(ctx, key).Result()
 		if err != nil {
-			utils.Error(c, http.StatusInternalServerError, "Redis error")
+			utils.Error(c, http.StatusInternalServerError, "Redis error", err.Error())
 			return
 		}
 
@@ -61,7 +61,7 @@ func RateLimitPerIPMiddleware() gin.HandlerFunc {
 			c.Header("X-RateLimit-Limit", strconv.Itoa(rateLimit))
 			c.Header("X-Retry-After", strconv.Itoa(int(ttl.Seconds())))
 			c.Abort()
-			utils.Error(c, http.StatusTooManyRequests, "Rate limit exceeded. Try again later.")
+			utils.Error(c, http.StatusTooManyRequests, "Rate limit exceeded. Try again later.", "You have exceeded the rate limit of "+strconv.Itoa(rateLimit)+" requests per "+rateLimitPeriod.String()+". Please try again after "+ttl.String()+".")
 			return
 		}
 

@@ -22,13 +22,13 @@ type RefreshInput struct {
 func Login(c *gin.Context) {
 	var input LoginInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		utils.Error(c, http.StatusBadRequest, "Invalid input format")
+		utils.Error(c, http.StatusBadRequest, "Invalid input format", err.Error())
 		return
 	}
 
 	userId, err := services.Authenticate(config.DB, input.Email, input.Password)
 	if err != nil {
-		utils.Error(c, http.StatusUnauthorized, err.Error())
+		utils.Error(c, http.StatusUnauthorized, "Authentication failed", err.Error())
 		return
 	}
 
@@ -42,12 +42,12 @@ func Login(c *gin.Context) {
 func Register(c *gin.Context) {
 	var input LoginInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		utils.Error(c, http.StatusBadRequest, "Invalid input format")
+		utils.Error(c, http.StatusBadRequest, "Invalid input format", err.Error())
 		return
 	}
 
 	if err := services.Register(config.DB, input.Email, input.Password); err != nil {
-		utils.Error(c, http.StatusBadRequest, err.Error())
+		utils.Error(c, http.StatusBadRequest, "Failed to register user", err.Error())
 		return
 	}
 
@@ -57,20 +57,20 @@ func Register(c *gin.Context) {
 func Refresh(c *gin.Context) {
 	var refreshInput RefreshInput
 	if err := c.ShouldBindJSON(&refreshInput); err != nil {
-		utils.Error(c, http.StatusBadRequest, "Invalid input format")
+		utils.Error(c, http.StatusBadRequest, "Invalid input format", err.Error())
 		return
 	}
 
 	claims, err := utils.ParseRefreshToken(refreshInput.RefreshToken)
 	if err != nil {
-		utils.Error(c, http.StatusUnauthorized, "Invalid refresh token")
+		utils.Error(c, http.StatusUnauthorized, "Invalid refresh token", err.Error())
 		return
 	}
 
 	userId := claims["user_id"].(uint)
 	accessToken, err := utils.GenerateAccessToken(userId)
 	if err != nil {
-		utils.Error(c, http.StatusInternalServerError, "Failed to generate access token")
+		utils.Error(c, http.StatusInternalServerError, "Failed to generate access token", err.Error())
 		return
 	}
 	utils.Success(c, http.StatusOK, gin.H{"access_token": accessToken})

@@ -41,7 +41,7 @@ func GetTasks(c *gin.Context) {
 	// Apply pagination
 	err := query.Offset(offset).Limit(limit).Find(&tasks).Error
 	if err != nil {
-		utils.Error(c, 500, "Failed to retrieve tasks")
+		utils.Error(c, http.StatusInternalServerError, "Failed to retrieve tasks", err.Error())
 		return
 	}
 
@@ -52,7 +52,7 @@ func GetTask(c *gin.Context) {
 	var task models.Task
 	id := c.Param("id")
 	if err := config.DB.First(&task, id).Error; err != nil {
-		utils.Error(c, 404, "Task not found")
+		utils.Error(c, http.StatusNotFound, "Task not found", err.Error())
 		return
 	}
 
@@ -62,12 +62,12 @@ func GetTask(c *gin.Context) {
 func CreateTask(c *gin.Context) {
 	var task models.Task
 	if err := c.ShouldBindJSON(&task); err != nil {
-		utils.Error(c, 400, "Invalid request data")
+		utils.Error(c, http.StatusNotFound, "Invalid request data", err.Error())
 		return
 	}
 
 	if err := config.DB.Create(&task).Error; err != nil {
-		utils.Error(c, 400, "Failed to create task")
+		utils.Error(c, http.StatusNotFound, "Failed to create task", err.Error())
 		return
 	}
 
@@ -80,19 +80,19 @@ func UpdateTask(c *gin.Context) {
 
 	// Check if the task exists
 	if err := config.DB.First(&task, id).Error; err != nil {
-		utils.Error(c, 404, "Task not found")
+		utils.Error(c, http.StatusNotFound, "Task not found", err.Error())
 		return
 	}
 
 	// Check if the request body is valid
 	if err := c.ShouldBindJSON(&task); err != nil {
-		utils.Error(c, 400, "Invalid request data")
+		utils.Error(c, http.StatusNotFound, "Invalid request data", err.Error())
 		return
 	}
 
 	// Update the task
 	if err := config.DB.Save(&task).Error; err != nil {
-		utils.Error(c, 400, "Failed to update task")
+		utils.Error(c, http.StatusNotFound, "Failed to update task", err.Error())
 		return
 	}
 
@@ -105,13 +105,13 @@ func DeleteTask(c *gin.Context) {
 
 	// Check if the task exists
 	if err := config.DB.First(&task, id).Error; err != nil {
-		utils.Error(c, 404, "Task not found")
+		utils.Error(c, http.StatusNotFound, "Task not found", err.Error())
 		return
 	}
 
 	// Delete the task
 	if err := config.DB.Delete(&task).Error; err != nil {
-		utils.Error(c, 400, "Failed to delete task")
+		utils.Error(c, http.StatusNotFound, "Failed to delete task", err.Error())
 		return
 	}
 
