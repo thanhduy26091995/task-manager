@@ -8,11 +8,17 @@ import (
 	"task-manager-api/utils"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 func GetTasks(c *gin.Context) {
 	var tasks []models.Task
 	var total int64
+
+	userID := utils.GetUserID(c);
+	if userID == 0 {
+		return
+	}
 
 	// Parse pagination parameters
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
@@ -24,7 +30,7 @@ func GetTasks(c *gin.Context) {
 	}
 
 	offset := (page - 1) * limit
-	query := config.DB.Model(&models.Task{})
+	query := config.DB.Model(&models.Task{}).Where("user_id = ?", userID)
 
 	// Apply filter
 	if completed != "" {
@@ -39,7 +45,7 @@ func GetTasks(c *gin.Context) {
 	query.Count(&total)
 
 	// Apply pagination
-	err := query.Offset(offset).Limit(limit).Find(&tasks).Error
+	err := query.Offset(offset).Limit(limit).Order("created_at DESC").Find(&tasks).Error
 	if err != nil {
 		utils.Error(c, http.StatusInternalServerError, "Failed to retrieve tasks", err.Error())
 		return
@@ -51,11 +57,17 @@ func GetTasks(c *gin.Context) {
 func GetTask(c *gin.Context) {
 	var task models.Task
 	id := c.Param("id")
+	userID := utils.GetUserID(c)
 	if err := config.DB.First(&task, id).Error; err != nil {
 		utils.Error(c, http.StatusNotFound, "Task not found", err.Error())
 		return
 	}
 
+	if task.UserID != userID {
+		utils.Error(c, http.StatusForbidden, "You do not have permission to access this task", "Task does not belong to the user")
+		return	
+	}
+	
 	utils.Success(c, http.StatusOK, task)
 }
 
@@ -66,10 +78,22 @@ func CreateTask(c *gin.Context) {
 		return
 	}
 
+	task.UserID = utils.GetUserID(c)
 	if err := config.DB.Create(&task).Error; err != nil {
 		utils.Error(c, http.StatusNotFound, "Failed to create task", err.Error())
 		return
 	}
+
+	// Logging
+	go func(t models.Task) {
+		defer func() {
+			if r := recover(); r != nil {
+				config.Log.Error("Recovered from panic in CreateTask", zap.Any("error", r))
+			}
+		}()
+
+		config.Log.Info("Task created", zap.Int("ID", int(t.ID)), zap.String("Title", t.Title), zap.Bool("Completed", t.Completed))
+	}(task)
 
 	utils.Success(c, http.StatusCreated, task)
 }
@@ -78,9 +102,17 @@ func UpdateTask(c *gin.Context) {
 	var task models.Task
 	id := c.Param("id")
 
+	userID := utils.GetUserID(c)
+
 	// Check if the task exists
 	if err := config.DB.First(&task, id).Error; err != nil {
 		utils.Error(c, http.StatusNotFound, "Task not found", err.Error())
+		return
+	}
+
+	// Ensure the task belongs to the user
+	if task.UserID != userID {
+		utils.Error(c, http.StatusForbidden, "You do not have permission to update this task", "Task does not belong to the user")
 		return
 	}
 
@@ -103,9 +135,16 @@ func DeleteTask(c *gin.Context) {
 	var task models.Task
 	id := c.Param("id")
 
+	userID := utils.GetUserID(c)
+
 	// Check if the task exists
 	if err := config.DB.First(&task, id).Error; err != nil {
 		utils.Error(c, http.StatusNotFound, "Task not found", err.Error())
+		return
+	}
+
+	if task.UserID != userID {
+		utils.Error(c, http.StatusForbidden, "You do not have permission to delete this task", "Task does not belong to the user")
 		return
 	}
 

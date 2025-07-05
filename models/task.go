@@ -10,4 +10,7 @@ type Task struct {
 	DueDate *time.Time `json:"due_date,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"` 
+	
+	UserID uint `gorm:"not null" json:"-"`
+	User User `gorm:"foreignKey:UserID" json:"-"`
 }

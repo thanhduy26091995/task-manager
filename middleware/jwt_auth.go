@@ -23,7 +23,14 @@ func JWTAuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		c.Set("user_id", claims["user_id"])
+		userIDFloat, ok := claims["user_id"].(float64)
+		if !ok {
+			c.Abort()
+			utils.Error(c, http.StatusUnauthorized, "Invalid user ID type", "The user ID must be a valid unsigned integer.")
+			return
+		}
+
+		c.Set("user_id", uint(userIDFloat))
 		c.Next()
 	}
 }
